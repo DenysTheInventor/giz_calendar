@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой Календарь</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.14/index.global.min.js'></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        /* Этот стиль нам больше не нужен, так как мы будем добавлять его через JS */
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+
+    <div 
+        x-data="eventModal()"
+        x-show="open"
+        x-cloak
+        x-init="init()"
+        @keydown.escape.window="closeModal()"
+        @open-event-modal.window="openModal($event.detail.eventId)"
+        class="fixed inset-0 z-10 flex items-center justify-center bg-black bg-opacity-50 p-4"
+    >
+        <div @click.away="closeModal()" class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 x-text="title" class="text-xl font-bold text-gray-800"></h3>
+                <button @click="closeModal()" class="text-gray-500 hover:text-gray-800">&times;</button>
+            </div>
+            
+            <div class="p-4 border-b">
+                <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600">
+                    <div x-show="eventType" class="flex items-center">
+                        <span class="bg-gray-200 text-gray-800 px-3 py-1 rounded-full font-semibold" x-text="eventType"></span>
+                    </div>
+                    <div x-show="startTime" class="flex items-center font-semibold">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span x-text="startTime"></span>
+                    </div>
+                    <div x-show="duration > 0" class="flex items-center">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span x-text="`${duration} мин.`"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div x-html="description" class="p-4 text-gray-700 prose max-w-none"></div>
+            
+            <div class="flex justify-end p-4 border-t bg-gray-50 rounded-b-lg">
+                <button @click="closeModal()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 whitespace-nowrap">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8 flex-grow flex flex-col">
+        <div id="calendar" class="bg-white p-4 rounded-lg shadow flex-grow"></div>
+    </div>
+
+    <script>
+        // Код eventModal() остался без изменений
+        function eventModal() { /* ... */ }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                height: 'parent',
+                initialView: 'dayGridMonth',
+                headerToolbar: { /* ... */ },
+                events: '/api/events/',
+                locale: 'ru',
+                
+                // --- ИЗМЕНЕНИЕ: Заменяем eventContent на eventDidMount ---
+                eventDidMount: function(info) {
+                    // info.el - это DOM-элемент события, который уже отрисован
+                    const time = info.event.extendedProps.start_time;
+                    if (time) {
+                        const timeEl = document.createElement('b'); // Создаем жирный тег <b>
+                        timeEl.style.marginRight = '5px'; // Добавляем отступ
+                        timeEl.innerText = time;
+                        
+                        // Находим стандартный элемент с заголовком и вставляем наше время ПЕРЕД ним
+                        const titleEl = info.el.querySelector('.fc-event-title');
+                        if (titleEl) {
+                            titleEl.insertAdjacentElement('beforebegin', timeEl);
+                        }
+                    }
+                },
+
+                // eventClick остался без изменений
+                eventClick: function(info) {
+                    info.jsEvent.preventDefault();
+                    window.dispatchEvent(new CustomEvent('open-event-modal', {
+                        detail: { eventId: info.event.id }
+                    }));
+                }
+            });
+            calendar.render();
+        });
+        
+        // ВАЖНО: скопируйте сюда всю вашу рабочую функцию eventModal() из прошлого шага
+        // Я убрал ее отсюда для краткости, но она должна здесь быть.
+        function eventModal() {
+            return {
+                open: false, title: 'Загрузка...', description: '',
+                startTime: '', duration: 0, eventType: '',
+                init() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const eventId = urlParams.get('event');
+                    if (eventId) { this.openModal(eventId); }
+                    window.onpopstate = (event) => {
+                         const newUrlParams = new URLSearchParams(window.location.search);
+                         const newEventId = newUrlParams.get('event');
+                         if(newEventId) { this.openModal(newEventId); } else { this.open = false; }
+                    };
+                },
+                async fetchEvent(eventId) {
+                    this.title = 'Загрузка...'; this.description = '';
+                    try {
+                        const response = await fetch(`/api/events/${eventId}/`);
+                        if (!response.ok) throw new Error('Событие не найдено');
+                        const data = await response.json();
+                        this.title = data.title;
+                        this.description = data.description.replace(/\n/g, '<br>');
+                        this.startTime = data.start_time; this.duration = data.duration; this.eventType = data.event_type;
+                    } catch (error) {
+                        this.title = 'Ошибка'; this.description = error.message;
+                    }
+                },
+                openModal(eventId) {
+                    this.open = true;
+                    const url = new URL(window.location);
+                    url.searchParams.set('event', eventId);
+                    window.history.pushState({eventId}, '', url);
+                    this.fetchEvent(eventId);
+                },
+                closeModal() {
+                    this.open = false;
+                    const url = new URL(window.location);
+                    url.searchParams.delete('event');
+                    window.history.pushState({}, '', url);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
