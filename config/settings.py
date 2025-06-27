@@ -152,6 +152,11 @@ JAZZMIN_SETTINGS = {
     "copyright": "Calendar Inc.",
 }
 
+# Эта проверка важна. Она гарантирует, что эти настройки
+# будут применяться только на сервере Render, а не локально.
 if not DEBUG:
+    # Эта строка указывает, в какую папку WhiteNoise должен собрать все статические файлы.
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+    # Эта строка говорит Django использовать оптимизированное хранилище WhiteNoise.
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
