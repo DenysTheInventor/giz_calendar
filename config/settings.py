@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'events',
+    'colorfield',
 ]
 
 MIDDLEWARE = [
@@ -151,6 +152,9 @@ JAZZMIN_SETTINGS = {
     # Копирайт в подвале
     "copyright": "Calendar Inc.",
 }
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Эта проверка важна. Она гарантирует, что эти настройки
 # будут применяться только на сервере Render, а не локально.
